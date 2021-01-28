@@ -139,11 +139,15 @@ function perform_backups()
 		if [ $ENABLE_CUSTOM_BACKUPS = "yes" ]; then
 			echo "* Custom backup of $DATABASE"
  
-			if ! pg_dump -Fc -h "$HOSTNAME" -U "$USERNAME" "$DATABASE" -f $FINAL_BACKUP_DIR"$DATABASE".custom.in_progress; then
+			set -o pipefail
+			# NB - we are using this to back up TimescaleDB which results in loads of warnings.  Any actual errors seem to start with the string "error"
+			# so grep them out.  The command will fail and print an error anyway, this is just filtering what the preceding log lines will say.
+			if ! pg_dump -Fc -h "$HOSTNAME" -U "$USERNAME" "$DATABASE" -f $FINAL_BACKUP_DIR"$DATABASE".custom.in_progress 2>&1 | (grep 'error' || true); then
 				echo "[!!ERROR!!] Failed to produce custom backup database $DATABASE"
 			else
 				mv $FINAL_BACKUP_DIR"$DATABASE".custom.in_progress $FINAL_BACKUP_DIR"$DATABASE".custom
 			fi
+			set +o pipefail
 		fi
 	done
 	echo -e "\nAll database backups complete"
